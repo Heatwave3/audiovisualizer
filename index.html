@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Visualizer</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #1a0026;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #instructions {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #fff;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">
+        <h2>Audio Visualizer</h2>
+        <p>Click on the visualizer below to upload an audio file.</p>
+    </div>
+    <canvas id="visualizer"></canvas>
+    <input type="file" id="audioInput" accept="audio/*" style="display:none;">
+    <script>
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        const audioInput = document.getElementById('audioInput');
+        let audioContext, analyser, source, dataArray;
+
+        canvas.width = 800;
+        canvas.height = 300;
+
+        canvas.addEventListener('click', () => audioInput.click());
+
+        audioInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const arrayBuffer = e.target.result;
+                setupAudio(arrayBuffer);
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+
+        function setupAudio(arrayBuffer) {
+            if (audioContext) audioContext.close();
+            
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+
+            audioContext.decodeAudioData(arrayBuffer, (buffer) => {
+                source = audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+                source.start(0);
+                animate();
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.fillStyle = '#1a0026';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = canvas.width / bufferLength * 2.5;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                const barHeight = dataArray[i] * 0.7;
+                
+                const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
+                gradient.addColorStop(0, '#ff00ff');
+                gradient.addColorStop(1, '#ffffff');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+
+                x += barWidth + 1;
+            }
+        }
+    </script>
+</body>
+</html>
